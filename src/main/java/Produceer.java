@@ -51,4 +51,27 @@ public class Produceer {
         }
         producer.close();
     }
+
+    public static void main2(String[] args) {
+        Properties props = new Properties();
+        props.put("bootstrap.servers", "arloor.com:9092");
+        props.put("transactional.id", "my-transactional-id");
+        Producer<String, String> producer = new KafkaProducer<>(props, new StringSerializer(), new StringSerializer());
+
+        producer.initTransactions();
+
+        try {
+            producer.beginTransaction();
+            for (int i = 0; i < 100; i++)
+                producer.send(new ProducerRecord<>("test", Integer.toString(i), Integer.toString(i)));
+            producer.commitTransaction();
+        } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
+            // We can't recover from these exceptions, so our only option is to close the producer and exit.
+            producer.close();
+        } catch (KafkaException e) {
+            // For all other exceptions, just abort the transaction and try again.
+            producer.abortTransaction();
+        }
+        producer.close();
+    }
 }
